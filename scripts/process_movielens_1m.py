@@ -46,11 +46,13 @@ occupations = {
 
 def load_users(users_file):
     users = []
+    orig_user_ids = []
     with open(users_file, encoding=encoding) as fin:
-        for line in fin:
+        for user_id, line in enumerate(fin):
             fields = line.strip().split('::')
             assert len(fields) == 5
-            user_id = int(fields[0]) - 1
+            orig_user_id = int(fields[0])
+            orig_user_ids.append(orig_user_id)
             gender = fields[1]
             age_group_id = int(fields[2])
             occupation_id = int(fields[3])
@@ -64,16 +66,18 @@ def load_users(users_file):
                 'zip3' : zip_code[:3],
                 'zip5' : zip_code,
             })
-    return pd.DataFrame(users)
+    return pd.DataFrame(users, index=orig_user_ids)
 
 
 def load_movies(movies_file):
     movies = []
+    orig_movie_ids = []
     with open(movies_file, encoding=encoding) as fin:
-        for line in fin:
+        for movie_id, line in enumerate(fin):
             fields = line.strip().split('::')
             assert len(fields) == 3
-            movie_id = int(fields[0]) - 1
+            orig_movie_id = int(fields[0])
+            orig_movie_ids.append(orig_movie_id)
             title = fields[1]
             genres = fields[2].split('|')
             movies.append({
@@ -81,7 +85,7 @@ def load_movies(movies_file):
                 'title' : title,
                 'genres' : genres,
             })
-    return pd.DataFrame(movies)
+    return pd.DataFrame(movies, index=orig_movie_ids)
 
 
 def load_ratings(ratings_file):
@@ -89,13 +93,13 @@ def load_ratings(ratings_file):
     with open(ratings_file, encoding=encoding) as fin:
         for line in fin:
             fields = line.strip().split('::')
-            user_id = int(fields[0]) - 1
-            movie_id = int(fields[1]) - 1
+            orig_user_id = int(fields[0])
+            orig_movie_id = int(fields[1])
             rating = int(fields[2])
             timestamp = dt.datetime.fromtimestamp(int(fields[3]))
             ratings.append({
-                'user_id' : user_id,
-                'movie_id' : movie_id,
+                'user_id' : orig_user_id,
+                'movie_id' : orig_movie_id,
                 'rating' : rating,
                 'timestamp' : timestamp,
             })
@@ -129,15 +133,18 @@ def make_dummies(features):
     return A, dummy_index
 
 
-def make_ratings_matrices(df_ratings):
-    ii = df_ratings.user_id
-    jj = df_ratings.movie_id
-    num_users = ii.max() + 1
-    num_movies = jj.max() + 1
-    R = np.zeros((num_users, num_movies))
-    R[ii, jj] = df_ratings.rating
+def make_ratings_matrices(df_ratings, df_users, df_movies):
+    num_users = len(df_users)
+    num_movies = len(df_movies)
     Y = np.zeros((num_users, num_movies))
-    Y[ii, jj] = 1
+    R = np.zeros((num_users, num_movies))
+    for _, row_data in df_ratings.iterrows():
+        orig_user_id = row_data.user_id
+        orig_movie_id = row_data.movie_id
+        user_id = df_users.loc[orig_user_id].user_id
+        movie_id = df_movies.loc[orig_movie_id].movie_id
+        R[user_id, movie_id] = row_data.rating
+        Y[user_id, movie_id] = 1
     return R, Y
 
 
@@ -186,6 +193,6 @@ if __name__ == "__main__":
         for i, colname in enumerate(Z_cols):
             fout.write(f"{i}\t{colname}\n")
 
-    R, Y = make_ratings_matrices(df_ratings)
+    R, Y = make_ratings_matrices(df_ratings, df_users, df_movies)
     np.save(f"{output_dir}/R.npy", R)
     np.save(f"{output_dir}/Y.npy", Y)
