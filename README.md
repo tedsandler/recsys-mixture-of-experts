@@ -1,3 +1,3 @@
 # recsys-moe
 
-Recommender system using an adaptive mixtures of local experts [WIP]
+[WIP] Recommender system using an adaptive mixtures of local experts
