@@ -1,2 +1,3 @@
 # recsys-moe
-recsys with mixture-of-experts
+
+Recommender system using an adaptive mixtures of local experts
